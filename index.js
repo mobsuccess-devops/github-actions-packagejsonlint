@@ -1,18 +1,18 @@
-const { readFile, stat } = require("fs/promises");
+const { readFileSync, statSync } = require("fs");
 
 const expectedLockfileVersion = 1;
 
 async function getPackage() {
-  return JSON.parse((await readFile("package.json")).toString("utf-8"));
+  return JSON.parse(readFileSync("package.json").toString("utf-8"));
 }
 
 async function getPackageLock() {
-  return JSON.parse((await readFile("package-lock.json")).toString("utf-8"));
+  return JSON.parse(readFileSync("package-lock.json").toString("utf-8"));
 }
 
 async function hasYarnLock() {
   try {
-    await stat("./yarn.lock");
+    statSync("./yarn.lock");
     return true;
   } catch (e) {
     return false;
