@@ -1,0 +1,19 @@
+{
+  "name": "@mobsuccess-devops/github-actions-packagejsonlint",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "scripts": {
+    "prettier": "npx prettier -c .",
+    "eslint": "npx eslint ."
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "eslint": "^7.24.0",
+    "prettier": "2.2.1"
+  }
+}
