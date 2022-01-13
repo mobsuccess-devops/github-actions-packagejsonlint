@@ -1,6 +1,6 @@
 const { readFileSync, statSync } = require("fs");
 
-const expectedLockfileVersion = 1;
+const expectedLockfileVersion = 2;
 
 async function getPackage() {
   return JSON.parse(readFileSync("package.json").toString("utf-8"));
