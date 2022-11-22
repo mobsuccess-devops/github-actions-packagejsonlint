@@ -44,4 +44,22 @@ async function lint() {
   }
 }
 
+async function checkForPreRelease() {
+  const {
+    dependencies = {},
+    devDependencies = {},
+    peerDependencies = {},
+  } = await getPackage();
+  const deps = { ...dependencies, ...devDependencies, ...peerDependencies };
+  for (const [name, version] of Object.entries(deps)) {
+    if (/^@mobsuccess-devops/.test(name) && /-pr-(\d+)\.(\d+)$/.test(version)) {
+      process.stderr.write(
+        `Unexpected pre-release dependency found: ${name}@${version}\n`
+      );
+      process.exit(1);
+    }
+  }
+}
+
 lint();
+checkForPreRelease();
