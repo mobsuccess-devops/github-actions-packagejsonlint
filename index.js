@@ -1,46 +1,27 @@
-const { readFileSync, statSync } = require("fs");
+const checkLockVersion = require("./lib/checks/lockVersion");
+const checkForPreRelease = require("./lib/checks/preReleases");
+const hasYarnLock = require("./lib/checks/yarn");
+const { FatalError } = require("./lib/errors");
+const { getPackageLock, getPackage } = require("./lib/utils");
 
-const expectedLockfileVersion = 2;
-
-async function getPackage() {
-  return JSON.parse(readFileSync("package.json").toString("utf-8"));
-}
-
-async function getPackageLock() {
-  return JSON.parse(readFileSync("package-lock.json").toString("utf-8"));
-}
-
-async function hasYarnLock() {
-  try {
-    statSync("./yarn.lock");
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-async function lint() {
-  if (await hasYarnLock()) {
-    process.stderr.write(`Unexpected yarn.lock file detected\n`);
-    process.exit(1);
-  }
-
-  process.stderr.write(
-    `Lintint package.json for package ${(await getPackage()).name}\n`
-  );
-
-  try {
-    const { lockfileVersion } = await getPackageLock();
-    if (lockfileVersion !== expectedLockfileVersion) {
-      process.stderr.write(
-        `Unexpected lockfileVersion, found “${lockfileVersion}”, expected “${expectedLockfileVersion}”\n`
-      );
+function lint() {
+  const pkgLock = getPackageLock();
+  const pkgJson = getPackage();
+  const errors = [];
+  errors.push(hasYarnLock());
+  errors.push(checkLockVersion(pkgLock));
+  errors.push(checkForPreRelease(pkgJson));
+  for (const error of errors) {
+    if (error instanceof FatalError) {
+      process.stderr.write(`${error.message}\n`);
       process.exit(1);
     }
-  } catch (e) {
-    process.stderr.write(
-      `No package-lock.json file, ignoring lockfileVersion check\n`
-    );
+    if (error instanceof Error) {
+      process.stderr.write(`${error.message}\n`);
+    }
+    if (error) {
+      process.stderr.write(`${error}\n`);
+    }
   }
 }
 
