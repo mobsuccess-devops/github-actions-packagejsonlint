@@ -1,0 +1,221 @@
+# DO NOT EDIT: BEGIN
+# This snippet has been inserted automatically by mobsuccessbot, do not edit!
+# If changes are needed, update the action npm in
+# https://github.com/mobsuccess-devops/github-mobsuccess-policy
+on:
+  push:
+    branches: [master, preprod, prod]
+  pull_request:
+    types: [opened, synchronize, reopened]
+name: NPM
+jobs:
+  packagejsonlint:
+    name: PackageJsonLint
+    runs-on: ubuntu-20.04
+    timeout-minutes: 1
+    steps:
+      - uses: actions/checkout@v3
+      - uses: mobsuccess-devops/github-actions-packagejsonlint@master
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-20.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.16.0
+      - name: Cache Node Modules
+        id: cache
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ./node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package.json') }}-${{ hashFiles('**/package-lock.json') }}-node-16.16.0
+      - run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.MS_READ_PACKAGES_GITHUB_PAT }}" >> ~/.npmrc
+        name: Configure Credentials For GitHub Packages
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: .
+      - run: npm run prettier
+        working-directory: .
+  eslint:
+    name: Eslint
+    runs-on: ubuntu-20.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.16.0
+      - name: Cache Node Modules
+        id: cache
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ./node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package.json') }}-${{ hashFiles('**/package-lock.json') }}-node-16.16.0
+      - run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.MS_READ_PACKAGES_GITHUB_PAT }}" >> ~/.npmrc
+        name: Configure Credentials For GitHub Packages
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: .
+      - run: npm run eslint
+        working-directory: .
+  test:
+    name: Test
+    runs-on: ubuntu-20.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.16.0
+      - name: Cache Node Modules
+        id: cache
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ./node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package.json') }}-${{ hashFiles('**/package-lock.json') }}-node-16.16.0
+      - run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.MS_READ_PACKAGES_GITHUB_PAT }}" >> ~/.npmrc
+        name: Configure Credentials For GitHub Packages
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: .
+      - run: npm run test
+        working-directory: .
+  postBuild:
+    needs: [packagejsonlint, prettier, eslint, test]
+    name: Post-Build
+    runs-on: ubuntu-20.04
+    timeout-minutes: 2
+    outputs:
+      needsPackage: ${{ steps.checkEligibility.outputs.needsPackage }}
+      pr: ${{ steps.checkEligibility.outputs.pr }}
+      tag: ${{ steps.checkEligibility.outputs.tag }}
+    steps:
+      - name: Check Package Eligibility
+        id: checkEligibility
+        run: |
+          if [[ ${{github.ref}} == "refs/heads/master" ]]; then
+            echo Packaging for master
+            echo "needsPackage=true" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          else
+            has_label_package=${{ contains(github.event.pull_request.labels.*.name, 'npm-publish') }}
+            if [ "$has_label_package" == true ]; then
+              echo PR has package label
+              pr_number=${{github.event.number}}
+              if [ -z "$pr_number" ]; then
+                pr_number=${{github.event.issue.number}}
+              fi
+              echo "needsPackage=true" >> $GITHUB_OUTPUT
+              echo "pr=$pr_number" >> $GITHUB_OUTPUT
+              echo "tag=pr-$pr_number" >> $GITHUB_OUTPUT
+            else
+              echo PR does not have package label
+              echo "needsPackage=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  package:
+    needs: [postBuild]
+    name: Package
+    runs-on: ubuntu-20.04
+    timeout-minutes: 2
+    outputs:
+      packageVersion: ${{ steps.outputPackageVersion.outputs.packageVersion }}
+    if: needs.postBuild.outputs.needsPackage == 'true'
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.16.0
+      - name: Cache Node Modules
+        id: cache
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ./node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package.json') }}-${{ hashFiles('**/package-lock.json') }}-node-16.16.0
+      - run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.MS_READ_PACKAGES_GITHUB_PAT }}" >> ~/.npmrc
+        name: Configure Credentials For GitHub Packages
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: .
+      - run: npm version --no-git-tag-version $(node -e 'x=JSON.parse(require("fs").readFileSync("package.json", {encoding:"utf-8"})).version.split("."); x[2]="'$GITHUB_RUN_ID'"; console.log(x.join("."))' )
+      - run: npm version prerelease --no-git-tag-version --preid=pr-${{needs.postBuild.outputs.pr}}
+        if: github.ref != 'refs/heads/master'
+      - run: echo "packageVersion=$(node -e 'x=JSON.parse(require("fs").readFileSync("package.json", {encoding:"utf-8"})).version; console.log(x)')" >> $GITHUB_OUTPUT
+        id: outputPackageVersion
+      - name: Push tag
+        uses: rickstaa/action-create-tag@v1
+        if: github.ref == 'refs/heads/master'
+        with:
+          tag: "${{steps.outputPackageVersion.outputs.packageVersion}}"
+          force_push_tag: true
+      - name: "✏️ Generate release changelog"
+        id: build_changelog
+        uses: mobsuccess-devops/github-actions-mobsuccess@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          action: "changelog"
+          unreleased-tag: ${{ github.ref == 'refs/heads/master' && steps.outputPackageVersion.outputs.packageVersion || ''}}
+          max-releases: 10
+      - run: |
+          firstLine=$(cat << EOF
+          # Changelog
+
+          ## Work In Progress
+
+          [pr-${{needs.postBuild.outputs.pr}}](https://github.com/$GITHUB_REPOSITORY/pull/${{needs.postBuild.outputs.pr}})
+
+          ---
+
+          EOF
+          )
+          echo "$firstLine<br><br>${{ steps.build_changelog.outputs.changelog }}<br><br>-------<br><br>" | cat - README.md > temp && mv temp README.md
+        if: github.ref != 'refs/heads/master'
+      - run: echo "${{ steps.build_changelog.outputs.changelog }}<br><br>-------<br><br>" | cat - README.md > temp && mv temp README.md
+        if: github.ref == 'refs/heads/master'
+      - run: npm pack
+        working-directory: .
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: package
+          path: "*.tgz"
+  publish:
+    name: "Publish to GitHub Packages"
+    needs: [postBuild, package]
+    runs-on: ubuntu-20.04
+    timeout-minutes: 2
+    if: needs.postBuild.outputs.needsPackage == 'true'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Upload
+        uses: actions/download-artifact@v2
+        with:
+          name: package
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.16.0
+          registry-url: https://npm.pkg.github.com/
+          scope: "@mobsuccess-devops"
+      - run: echo "registry=https://npm.pkg.github.com/@mobsuccess-devops" >> .npmrc
+      - run: npm publish $(ls *.tgz) --tag ${{needs.postBuild.outputs.tag}}
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Create a GitHub release
+        uses: ncipollo/release-action@v1
+        if: github.ref == 'refs/heads/master'
+        with:
+          tag: ${{ needs.package.outputs.packageVersion }}
+          prerelease: ${{github.ref != 'refs/heads/master'}}
+          generateReleaseNotes: true
+# DO NOT EDIT: END
