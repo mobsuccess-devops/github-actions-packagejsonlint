@@ -3,6 +3,9 @@
 # If changes are needed, update the action npm in
 # https://github.com/mobsuccess-devops/github-mobsuccess-policy
 on:
+  merge_group:
+    types:
+      - checks_requested
   push:
     branches: [master, preprod, prod]
   pull_request:
