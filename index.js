@@ -1,5 +1,6 @@
 const checkLockVersion = require("./lib/checks/lockVersion");
 const checkForPreRelease = require("./lib/checks/preReleases");
+const checkForWorkspaces = require("./lib/checks/workspaces");
 const hasYarnLock = require("./lib/checks/yarn");
 const { FatalError } = require("./lib/errors");
 const { getPackageLock, getPackage } = require("./lib/utils");
@@ -11,6 +12,7 @@ function lint() {
   errors.push(hasYarnLock());
   errors.push(checkLockVersion(pkgLock));
   errors.push(checkForPreRelease(pkgJson));
+  errors.push(checkForWorkspaces(pkgJson));
   for (const error of errors) {
     if (error instanceof FatalError) {
       process.stderr.write(`${error.message}\n`);
