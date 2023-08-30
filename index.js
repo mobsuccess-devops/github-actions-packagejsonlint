@@ -4,16 +4,19 @@ const checkForWorkspaces = require("./lib/checks/workspaces");
 const hasMSBridgeConfig = require("./lib/checks/msbridge");
 const hasYarnLock = require("./lib/checks/yarn");
 const { FatalError } = require("./lib/errors");
-const { getPackageLock, getPackage } = require("./lib/utils");
+const { getPackageLock, getAllPackages } = require("./lib/utils");
 
 function lint() {
   const pkgLock = getPackageLock();
-  const pkgJson = getPackage();
+  const allPkgs = getAllPackages();
   const errors = [];
   errors.push(hasYarnLock());
   errors.push(checkLockVersion(pkgLock));
-  errors.push(checkForPreRelease(pkgJson));
-  errors.push(checkForWorkspaces(pkgJson));
+  allPkgs.forEach((pkg) => {
+    console.log(`Checking ${pkg.filename}`);
+    errors.push(checkForPreRelease(pkg.content));
+    errors.push(checkForWorkspaces(pkg.content));
+  });
   errors.push(hasMSBridgeConfig());
   for (const error of errors) {
     if (error instanceof FatalError) {
