@@ -202,7 +202,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Upload
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: package
       - uses: actions/setup-node@v3
