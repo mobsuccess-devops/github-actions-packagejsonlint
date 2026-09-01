@@ -1,3 +1,6 @@
 policy:
+  skip-actions:
+    - linear
+    - ms-testers
   skip-updaters:
     - npm
