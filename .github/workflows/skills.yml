@@ -1,0 +1,71 @@
+# DO NOT EDIT: BEGIN
+# This snippet has been inserted automatically by mobsuccessbot, do not edit!
+# If changes are needed, update the action skills in
+# https://github.com/mobsuccess-devops/github-mobsuccess-policy
+name: Update Skills
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+      timezone: "Europe/Paris"
+  workflow_dispatch:
+
+jobs:
+  update-skills:
+    name: Update Skills
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Get bot token
+        id: get_token
+        uses: actions/create-github-app-token@v3
+        with:
+          repositories: ${{ github.event.repository.name }},skills-hub
+          owner: ${{ github.repository_owner }}
+          client-id: ${{ secrets.MS_RENOVATE_APP_ID }}
+          private-key: ${{ secrets.MS_RENOVATE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+
+      - name: Configure git credentials
+        run: git config --global url."https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Update skills
+        run: |
+          if [ -f "ai-lock.json" ]; then
+            echo "@mobsuccess-devops:registry=https://npm.pkg.github.com" >> ~/.npmrc
+            echo "//npm.pkg.github.com/:_authToken=${{ secrets.MS_READ_PACKAGES_GITHUB_PAT }}" >> ~/.npmrc
+            GITHUB_TOKEN="${{ steps.get_token.outputs.token }}" npx --package=@mobsuccess-devops/skills-cli -- skills-cli update
+          else
+            export GITHUB_TOKEN="${{ steps.get_token.outputs.token }}"
+            SKILLS=$(node -e "
+              const lock = require('./skills-lock.json');
+              const names = Object.entries(lock.skills)
+                .filter(([_, v]) => v.source === 'mobsuccess-devops/skills-hub')
+                .map(([name]) => name);
+              console.log(names.join(' '));
+            ")
+            if [ -n "$SKILLS" ]; then
+              npx skills add mobsuccess-devops/skills-hub --skill $SKILLS --agent claude-code cursor --yes
+            fi
+          fi
+
+      - name: Create PR if skills changed
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.get_token.outputs.token }}
+          commit-message: "chore(skills): update skills to latest versions"
+          branch: chore/update-skills
+          base: master
+          title: "chore(skills): update skills to latest versions"
+          body: |
+            Automated update of skills to their latest versions.
+
+            This PR was created automatically by the [daily skills update workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+          labels: automated
+          delete-branch: true
+# DO NOT EDIT: END
