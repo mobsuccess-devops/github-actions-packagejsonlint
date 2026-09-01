@@ -6,9 +6,7 @@
       "sourceUrl": "https://github.com/mobsuccess-devops/skills-hub.git",
       "skillPath": "skills/branch-commit-pr-ticket",
       "skillFolderHash": "a2940631713f1692a1dd722e2586ca824716b1c2",
-      "agents": [
-        "claude-code"
-      ],
+      "agents": ["claude-code"],
       "trusted": true,
       "installedAt": "2026-09-01T08:16:40.071Z",
       "updatedAt": "2026-09-01T08:16:40.071Z"
@@ -21,9 +19,7 @@
       "sourceUrl": "https://github.com/mobsuccess-devops/skills-hub.git",
       "folderPath": "hooks/security-guard",
       "folderHash": "88855ec1878d5287fa97b2bb600300bd6fc53bb4",
-      "agents": [
-        "claude-code"
-      ],
+      "agents": ["claude-code"],
       "trusted": true,
       "handlers": {
         "claude-code": {
