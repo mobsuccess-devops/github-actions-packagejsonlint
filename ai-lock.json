@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "skills": {
+    "branch-commit-pr-ticket": {
+      "source": "mobsuccess-devops/skills-hub",
+      "sourceUrl": "https://github.com/mobsuccess-devops/skills-hub.git",
+      "skillPath": "skills/branch-commit-pr-ticket",
+      "skillFolderHash": "a2940631713f1692a1dd722e2586ca824716b1c2",
+      "agents": [
+        "claude-code"
+      ],
+      "trusted": true,
+      "installedAt": "2026-09-01T08:16:40.071Z",
+      "updatedAt": "2026-09-01T08:16:40.071Z"
+    }
+  },
+  "mcpServers": {},
+  "hooks": {
+    "security-guard": {
+      "source": "mobsuccess-devops/skills-hub",
+      "sourceUrl": "https://github.com/mobsuccess-devops/skills-hub.git",
+      "folderPath": "hooks/security-guard",
+      "folderHash": "88855ec1878d5287fa97b2bb600300bd6fc53bb4",
+      "agents": [
+        "claude-code"
+      ],
+      "trusted": true,
+      "handlers": {
+        "claude-code": {
+          "PreToolUse": [
+            {
+              "matcher": "Bash|Shell|Edit|Write|Read|mcp__.*",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "\"$CLAUDE_PROJECT_DIR\"/.agents/hooks/security-guard/security-guard.sh",
+                  "timeout": 5
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "installedAt": "2026-09-01T08:16:40.087Z",
+      "updatedAt": "2026-09-01T08:16:40.087Z"
+    }
+  }
+}
