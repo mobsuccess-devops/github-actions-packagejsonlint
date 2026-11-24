@@ -42,11 +42,27 @@ jobs:
         run: git config --global url."https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Update skills
+        id: update
+        # skills-cli update (since the release with skills-cli#115) exits 1 when some
+        # entries could not be checked against GitHub (unreachable private source, bad
+        # token, rate limit), after updating every other entry, and reports them under
+        # "could not be checked for updates". Only that case still opens the PR
+        # (partial=true): any other failure (crash, npm error) may have left
+        # half-written files. The last step fails the job either way.
+        continue-on-error: true
         run: |
           if [ -f "ai-lock.json" ]; then
             echo "@mobsuccess-devops:registry=https://npm.pkg.github.com" >> ~/.npmrc
             echo "//npm.pkg.github.com/:_authToken=${{ secrets.MS_READ_PACKAGES_GITHUB_PAT }}" >> ~/.npmrc
-            GITHUB_TOKEN="${{ steps.get_token.outputs.token }}" npx --package=@mobsuccess-devops/skills-cli -- skills-cli update
+            log="$RUNNER_TEMP/skills-update.log"
+            set +e
+            GITHUB_TOKEN="${{ steps.get_token.outputs.token }}" npx --package=@mobsuccess-devops/skills-cli -- skills-cli update 2>&1 | tee "$log"
+            status=${PIPESTATUS[0]}
+            set -e
+            if [ "$status" -ne 0 ] && grep -q "could not be checked for updates" "$log"; then
+              echo "partial=true" >> "$GITHUB_OUTPUT"
+            fi
+            exit "$status"
           else
             export GITHUB_TOKEN="${{ steps.get_token.outputs.token }}"
             SKILLS=$(node -e "
@@ -62,6 +78,8 @@ jobs:
           fi
 
       - name: Create PR if skills changed
+        id: pr
+        if: steps.update.outcome == 'success' || steps.update.outputs.partial == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.get_token.outputs.token }}
@@ -75,4 +93,18 @@ jobs:
             This PR was created automatically by the [daily skills update workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
           labels: automated
           delete-branch: true
+
+      - name: Fail if the update reported errors
+        if: steps.update.outcome == 'failure'
+        env:
+          PR_OPERATION: ${{ steps.pr.outputs.pull-request-operation }}
+          PR_URL: ${{ steps.pr.outputs.pull-request-url }}
+        run: |
+          case "$PR_OPERATION" in
+            created|updated) where="Entries that did update are in $PR_URL." ;;
+            *) where="No pull request was opened." ;;
+          esac
+          echo "::error title=Skills update incomplete::skills-cli update failed: see the \"Update skills\" step log. $where"
+          exit 1
+
 # DO NOT EDIT: END
