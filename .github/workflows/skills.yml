@@ -106,5 +106,4 @@ jobs:
           esac
           echo "::error title=Skills update incomplete::skills-cli update failed: see the \"Update skills\" step log. $where"
           exit 1
-
 # DO NOT EDIT: END
